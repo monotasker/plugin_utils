@@ -1,0 +1,4 @@
+{{extend 'layout.html'}}
+{{myvars = request.vars if request.vars else {}}}
+{{myargs = request.args if request.args else []}}
+{{=LOAD('plugin_utils', 'action.load', args=myargs, vars=myvars ajax=True)}}
