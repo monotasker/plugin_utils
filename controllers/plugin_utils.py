@@ -7,19 +7,26 @@ Description: A collection of utility functions and classes for working on
 web2py projects (controllers file).
 '''
 
-from gluon import request
-from modules.plugin_utils import util_interface
+if 0:
+    from gluon import current
+    request = current.request
+from plugin_utils import util_interface
 
 
 def util():
     """
-    Controller function for input/output access to utility functions.
+    Controller function to present utility interface view.
     """
     return {}
 
 
 def action():
-    funcname = request.args[0] if request.args else 'default'
+    """
+    Controller function for input/output access to utility functions.
+    """
+    print 'hi', request.args
+    funcname = request.args[0]
+    print funcname
 
     form, output = util_interface(funcname)
 

@@ -46,9 +46,10 @@ These functions can also be called directly from other functions and classes.
 import re
 from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
 import json
-from paideia_utils import test_step_regex, gather_vocab
-import paideia_path_factory
 import traceback
+import datetime
+import os
+import csv
 #from pprint import pprint
 auth = current.auth
 request = current.request
@@ -62,10 +63,17 @@ def util_interface(funcname):
     The one required argument 'funcname' should be a string containing the name
     of a function in this module.
     """
-    output = {}
-    form = SQLFORM.factory(
-    )
-    if form.process
+    print 'util_interface'
+    funcs = {'gather_from_field': gather_from_field,
+             'bulk_update': bulk_update,
+             'migrate_field': migrate_field,
+             'migrate_table': migrate_table,
+             'import_from_csv': import_from_csv,
+             'make_rows_from_field': make_rows_from_field,
+             'make_rows_from_filenames': make_rows_from_filenames,
+             'replace_in_field': replace_in_field}
+
+    form, output = funcs[funcname]()
 
     return form, output
 
@@ -208,8 +216,8 @@ def make_json(data):
     return myjson
 
 
-def gather_from_field(tablename, fieldnames, regex_str, exclude,
-                      filter_func=None unique=True):
+def gather_from_field(tablename, fieldname, regex_str, exclude,
+                      filter_func=None, unique=True):
     """
     Return a list of all strings satisfying the supplied regex.
 
@@ -225,21 +233,39 @@ def gather_from_field(tablename, fieldnames, regex_str, exclude,
     can be normalized for case or accent characters if those variations are
     not significant.
     """
+
     db = current.db
-    rows = db(db[fieldname].id > 0).select()
+    form = SQLFORM.factory(Field('target_field'),
+                           Field('target_table'),
+                           Field('filter_func'),
+                           Field('trans_func'),
+                           Field('write_table'),
+                           Field('write_field'),
+                           Field('unique', 'boolean', default=True),
+                           Field('testing', 'boolean', default=True))
 
-    items = []
-    for r in rows:
-        regex = re.compile(u'{}'.format(regex_str))
-        targets = ' '.join([r[field] for field in fieldnames])
-        items.extend(regex.findall(targets))
-    if filter_func:
-        items = filter(filter_func, items)
-    if unique:
-        items = list(set(items))
-    items = [i for i in items if not i in exclude]
+    if form.process().accepted:
+        vv = form.vars
+        filter_func = eval(vv.filter_func) if vv.filter_func else None
+        trans_func = eval(vv.trans_func) if vv.trans_func else None
 
-    return items
+        items = []
+        rows = db(db[vv.target_table].id > 0).select()
+        for r in rows:
+            items.append(r['target_field'])
+
+        if filter_func:
+            items = filter(filter_func, items)
+        if trans_func:
+            items = [trans_func(i) for i in items]
+        if vv.unique:
+            items = list(set(items))
+        items = [i for i in items if not i in exclude]
+
+    elif form.errors:
+        items = BEAUTIFY(form.errors)
+
+    return form, items
 
 
 def multiple_replacer(*key_values):
@@ -276,6 +302,7 @@ def bulk_update():
     """
     Controller function to perform a programmatic update to a field in one table.
     """
+    db = current.db
     myrecs = None
     form = SQLFORM.factory(
         Field('table', requires=IS_IN_SET(db.tables)),
@@ -292,14 +319,17 @@ def bulk_update():
         except Exception:
             print traceback.format_exc(5)
     elif form.errors:
+        myrecs = BEAUTIFY(form.errors)
         response.flash = 'form has errors'
 
-    return dict(form=form, recs=myrecs)
+    return form, myrecs
 
 
 def migrate_field():
+    """
+    """
+    db = current.db
     fields = {'plugin_slider_slides': ('content', 'slide_content')}
-
     for t, f in fields.iteritems():
         table = t
         source_field = f[0]
@@ -314,7 +344,8 @@ def migrate_field():
     return {'records_copied': c}
 
 
-def to_migrate_table():
+def migrate_table():
+    db = current.db
     items = db(db.pages.id > 0).select()
     c = 0
     for i in items:
@@ -325,6 +356,7 @@ def to_migrate_table():
 
 
 def migrate_back():
+    db = current.db
     items = db(db.images_migrate.id > 0).select()
     c = 0
     for i in items:
@@ -332,3 +364,212 @@ def migrate_back():
         db.images[i.id] = i.as_dict()
 
     return dict(records_updated=c)
+
+
+def import_from_csv():
+    db = current.db
+    try:
+        db.paragraphs.truncate()
+    except:
+        print traceback.format_exc(5)
+    mydir = '/home/ian/Dropbox/Downloads/Webdev/woh_export'
+    files = ['node-export(43-nodes).1335558252.csv',
+             'node-export(50-nodes).1335557844.csv',
+             'node-export(50-nodes).1335557890.csv',
+             'node-export(50-nodes).1335557934.csv',
+             'node-export(50-nodes).1335558015.csv',
+             'node-export(50-nodes).1335558056.csv',
+             'node-export(50-nodes).1335558115.csv',
+             'node-export(50-nodes).1335558151.csv',
+             'node-export(50-nodes).1335558186.csv'
+             ]
+    #'node-export[](1-nodes).1335557290.export',
+    fullfiles = [os.path.join(mydir, f) for f in files]
+
+    for ff in fullfiles:
+        with open(ff, 'rU') as csfile:
+            rows = csv.DictReader(csfile)
+            for row in rows:
+                #pprint(row)
+                titlebits = row['title'].split('.') if row['title'] else [None, None, None]
+                taxes = [v for k, v in row.iteritems()
+                         if re.match(r'.*taxonomy.*', k)
+                         and v not in ['NULL', '', 0, 'None', None]]
+                topics = '|'.join(taxes) if taxes else None
+                pullquote = row['field_pullquote[\'0\'][\'value\']'] \
+                    if 'field_pullquote[\'0\'][\'value\']' in row.values() \
+                    else None
+                audio = row['field_audiolink[\'0\'][\'value\']'] \
+                    if 'field_audiolink[\'0\'][\'value\']' in row.values() \
+                    else None
+                image_id = row['field_images[\'0\'][\'fid\']'] \
+                    if 'field_images[\'0\'][\'fid\']' in row.values() \
+                    else None
+                image_alt = row['field_images[\'0\'][\'data\'][\'alt\']'] \
+                    if 'field_images[\'0\'][\'data\'][\'alt\']' \
+                    in row.values() else None
+                image_title = row['field_images[\'0\'][\'data\'][\'title\']'] \
+                    if 'field_images[\'0\'][\'data\'][\'title\']' \
+                    in row.values() else None
+                image_filename = row['field_images[\'0\'][\'filename\']'] \
+                    if 'field_images[\'0\'][\'filename\']' in row.values() \
+                    else None
+                times = {}
+                for k in ['changed', 'created']:
+                    errors = 0
+                    try:
+                        times[k] = datetime.datetime.fromtimestamp(int(row[k]))
+                    except (TypeError, ValueError):
+                        times[k] = datetime.datetime.utcnow()
+                        errors += 1
+                    print '{} errors: {}'.format(k, errors)
+
+                matches = {'uid': row['uid'],
+                           'chapter': titlebits[0],
+                           'section': titlebits[1] if len(titlebits) > 1 else 0,
+                           'subsection': titlebits[2] if len(titlebits) > 1 else 0,
+                           'display_title': row['field_displaytitle[\'0\'][\'value\']'],
+                           'status': row['status'],
+                           'changed': times['changed'],
+                           'created': times['created'],
+                           'body': row['body'],
+                           'pullquote': pullquote,
+                           'audio': audio,
+                           'image_id': image_id,
+                           'image_alt': image_alt,
+                           'image_title': image_title,
+                           'image_filename': image_filename,
+                           'topics': topics}
+                matches = {k: v for k, v in matches.iteritems() if not v in [None, 'NULL']}
+                num = db.paragraphs.insert(**matches)
+                print num
+
+
+def make_rows_from_field():
+    """
+    Use values from one table to create new records in another.
+
+    The strings provided for
+
+    The values for source_fields, target_fields, filter_funcs, and
+    transform_funcs will be aligned by index.
+    """
+    db = current.db
+    out = []
+    form = SQLFORM.factory(Field('target_table'),
+                           Field('source_table'),
+                           Field('source_fields', 'list:string'),
+                           Field('target_fields', 'list:string'),
+                           Field('filter_funcs', 'list:string'),
+                           Field('trans_funcs', 'list:string'),
+                           Field('unique', 'boolean', default=True),
+                           Field('testing', 'boolean', default=True))
+
+    if form.process().accepted:
+        vv = form.vars
+        sourcerows = db(db[vv.target_table].id > 0).select()
+        out = []
+        for srow in sourcerows:
+            trow = []
+            for idx, f in enumerate(vv.source_fields):
+                tval = vv.trans_funcs[idx](srow[f]) \
+                    if len(vv.trans_funcs) > idx else srow[f]
+                if len(vv.filter_funcs) > idx:
+                    if not vv.filter_funcs[idx](tval):
+                        tval = None
+                if tval:
+                    trow[vv.target_fields[idx]] = tval
+            out.append(trow)
+
+        if vv.unique:
+            out = list(set(out))
+        if not vv.testing:
+            db[vv.target_table].bulk_insert(out)
+
+    elif form.errors:
+        out = BEAUTIFY(form.errors)
+
+    return form, out
+
+
+def make_rows_from_filenames():
+    """
+    TODO: unfinished
+    """
+    db = current.db
+    form = SQLFORM.factory(Field('folder_path'),
+                           Field('target_field'),
+                           Field('filter_func'),
+                           Field('extra_fields', 'list:string'),
+                           Field('unique', 'boolean', default=True),
+                           Field('testing', 'boolean', default=True))
+
+    if form.process().accepted:
+        vv = form.vars
+        mypath = vv.folder_path
+        dirpath, dirnames, filenames = os.walk(mypath).next()
+        xfield, xfunc = (x.strip() for x in vv.extra_fields.split(','))
+        if xfunc:
+            xfunc = eval(xfunc)
+        filter_func = eval(vv.filter_func)
+
+        out = []
+        for f in filenames:
+            kwargs = {}
+            kwargs[vv.target_field] = f
+            if xfunc:
+                kwargs[xfield] = xfunc(f)
+            if filter_func and not filter_func(f):
+                kwargs = None
+            if kwargs:
+                out.append(kwargs)
+
+        if not vv.testing:
+            db[vv.target_table].bulk_insert(out)
+
+    elif form.errors:
+        out = BEAUTIFY(form.errors)
+
+    return form, out
+
+
+def replace_in_field():
+    """
+    Make a systematic set of string replacements for all values of one
+    db field.
+    """
+
+    db = current.db
+    form = SQLFORM.factory(Field('target_field'),
+                           Field('target_table'),
+                           Field('filter_func'),
+                           Field('replacement_pairs', 'list:string'),
+                           Field('testing', 'boolean', default=True))
+
+    if form.process().accepted:
+        vv = form.vars
+        reps = vv.replacement_pairs
+        myreps = []
+        for r in reps:
+            pieces = r.split(',')
+            myset = (pieces[0].strip(), pieces[1].strip())
+            myreps.append(myset)
+
+        myrows = db(db[vv.target_table].id > 0).select()
+        count = 0
+        pairs = {}
+        for m in myrows:
+            startval = m[vv.target_field]
+            endval = multiple_replace(startval, myreps)
+            if not vv.testing:
+                m.update_record(**{vv.target_field: endval})
+            pairs[startval] = endval
+            count += 1
+
+        out = {'records_updated': count,
+               'pairs': pairs}
+
+    elif form.errors:
+        out = BEAUTIFY(form.errors)
+
+    return form, out
