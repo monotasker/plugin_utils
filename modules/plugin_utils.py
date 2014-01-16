@@ -497,8 +497,10 @@ def make_rows_from_filenames():
     TODO: unfinished
     """
     db = current.db
+    out = []
     form = SQLFORM.factory(Field('folder_path'),
                            Field('target_field'),
+                           Field('target_table'),
                            Field('filter_func'),
                            Field('extra_fields', 'list:string'),
                            Field('unique', 'boolean', default=True),
@@ -507,6 +509,7 @@ def make_rows_from_filenames():
     if form.process().accepted:
         vv = form.vars
         mypath = vv.folder_path
+        fullpath = os.path.join(
         dirpath, dirnames, filenames = os.walk(mypath).next()
         xfield, xfunc = (x.strip() for x in vv.extra_fields.split(','))
         if xfunc:
