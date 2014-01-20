@@ -1,6 +1,9 @@
 *.un~
 *.py[cod]
-*.swp
+*.sw[op]
+*.un~
+*.tmp
+*.temp
 
 # C extensions
 *.so
