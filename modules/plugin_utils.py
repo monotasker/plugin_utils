@@ -509,9 +509,9 @@ def make_rows_from_filenames():
     if form.process().accepted:
         vv = form.vars
         mypath = vv.folder_path
-        fullpath = os.path.join(
+        fullpath = os.path.join()
         dirpath, dirnames, filenames = os.walk(mypath).next()
-        xfield, xfunc = (x.strip() for x in vv.extra_fields.split(','))
+        xfield, xfunc = tuple([(x[0].strip(), x[1].strip()) for x in vv.extra_fields.split(',')])
         if xfunc:
             xfunc = eval(xfunc)
         filter_func = eval(vv.filter_func)
