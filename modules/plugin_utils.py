@@ -29,7 +29,7 @@ make_json   :Return a json object representing the provided dictionary, with
              extra logic to handle datetime objects.
 
 
-bulk_update     :Controller function to perform a programmatic update to a
+BulkUpdate     :Controller function to perform a programmatic update to a
                  field in one table.
 migrate_field   :
 migrate_table   :
@@ -44,38 +44,44 @@ These functions can also be called directly from other functions and classes.
 '''
 
 import re
-from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
+from gluon import current, SQLFORM, Field, IS_IN_SET
 import json
 import traceback
 import datetime
 import os
 import csv
-#from pprint import pprint
+from pprint import pprint
+from ast import literal_eval
 auth = current.auth
 request = current.request
 response = current.response
 
 
-def util_interface(funcname):
+@auth.requires_membership('administrators')
+def util_interface(classname):
     """
     Interface function for accessing util logic via the plugin_utils/util view.
 
     The one required argument 'funcname' should be a string containing the name
     of a function in this module.
     """
-    print 'util_interface'
-    funcs = {'gather_from_field': gather_from_field,
-             'bulk_update': bulk_update,
-             'migrate_field': migrate_field,
-             'migrate_table': migrate_table,
-             'import_from_csv': import_from_csv,
-             'make_rows_from_field': make_rows_from_field,
-             'make_rows_from_filenames': make_rows_from_filenames,
-             'replace_in_field': replace_in_field}
+    myclasses = {'GatherFromField': GatherFromField,
+                 'BulkUpdate': BulkUpdate,
+                 'RowsFromField': RowsFromField,
+                 'RowsFromFilenames': RowsFromFilenames,
+                 'ReplaceInField': ReplaceInField}
 
-    form, output = funcs[funcname]()
+    form, output = myclasses[classname]().make_form()
 
     return form, output
+
+
+def islist(dat):
+    """
+    Return the data, ensuring that it is a single-level list.
+    """
+    newdat = [dat] if not isinstance(dat, list) else dat
+    return newdat
 
 
 def clr(string, mycol='white'):
@@ -114,53 +120,55 @@ def clr(string, mycol='white'):
 
 def printutf(string):
     """Convert unicode string to readable characters for printing."""
-    string = string.decode('utf-8').encode('utf-8')
+    string = makeutf8(string)
     return string
 
 
 def capitalize(letter):
-    #if letter in caps.values():
-    letter = letter.decode('utf-8').upper()
-    print 'capitalized'
-    print letter.encode('utf-8')
-    return letter
+    """
+    Convert string to upper case in utf-8 safe way.
+    """
+    letter = makeutf8(letter)
+    newletter = letter.upper()
+    return newletter.encode('utf-8')
 
 
-def lowercase(string):
+def lowercase(letter):
     """
     Convert string to lower case in utf-8 safe way.
     """
-    string = string.decode('utf-8').lower()
-    return string.encode('utf-8')
+    letter = makeutf8(letter)
+    newletter = letter.lower()
+    return newletter.encode('utf-8')
+
+
+def makeutf8(rawstring):
+    """Return the string decoded as utf8 if it wasn't already."""
+    try:
+        rawstring = rawstring.decode('utf8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        rawstring = rawstring
+    return rawstring
 
 
 def firstletter(mystring):
     """
     Find the first letter of a byte-encoded unicode string.
     """
-    print mystring
-    print 'utf-8'
-    mystring = mystring.decode('utf-8')
-    print mystring
+    mystring = makeutf8(mystring)
     let, tail = mystring[:1], mystring[1:]
-    print 'in firstletter: ', mystring[:1], '||', mystring[1:]
-    let, tail = let.encode('utf-8'), tail.encode('utf-8')
+    #print 'in firstletter: ', mystring[:1], '||', mystring[1:]
+    let, tail = let.encode('utf8'), tail.encode('utf8')
     return let, tail
-    #else:
-        #try:
-            #if mystring[:3] in caps.values():
-                #first_letter = mystring[:3]
-            #else:
-                #first_letter = mystring[:3]
-                #tail = mystring[3:]
-        #except KeyError:
-            #try:
-                #first_letter = mystring[:2]
-                #tail = mystring[2:]
-            #except KeyError:
-                #first_letter = mystring[:2]
-                #tail = mystring[2:]
-    #return first_letter, tail
+
+
+def capitalize_first(mystring):
+    """
+    Return the supplied string with its first letter capitalized.
+    """
+    first, rest = firstletter(mystring)
+    newstring = '{}{}'.format(capitalize(first), rest)
+    return newstring
 
 
 def test_regex(regex, readables):
@@ -170,13 +178,18 @@ def test_regex(regex, readables):
     The "readables" argument should be a list of strings to be tested.
     """
     readables = readables if type(readables) == list else [readables]
-    test_regex = re.compile(regex, re.I | re.U)
-    rdict = {}
-    for rsp in readables:
-        match = re.match(test_regex, rsp)
-        rdict[rsp] = SPAN('PASSED', _class='success') if match \
-            else SPAN('FAILED', _class='success')
-    return rdict
+    print 'testing regex =================================='
+    print makeutf8(regex)
+    for r in readables:
+        print makeutf8(r)
+    test_regex = re.compile(regex, re.I | re.U | re.X)
+    mlist = [re.match(test_regex, rsp) for rsp in readables]
+    if all(mlist):
+        return True, []
+    else:
+        print 'some failures'
+        pprint(mlist)
+        return False, mlist
 
 
 def flatten(self, items, seqtypes=(list, tuple)):
@@ -197,9 +210,10 @@ def send_error(myclass, mymethod, myrequest):
           'Request:\n{rq}\n' \
           '</html>'.format(myclass=myclass,
                            mymethod=mymethod,
-                           tb=traceback.format_exc(5),
-                           rq=myrequest)
-    title = 'Paideia error'
+                           tb=pprint(traceback.format_exc(5)),
+                           rq=pprint(myrequest))
+    appname = request.application
+    title = '{} error encountered'.format(capitalize_first(appname))
     mail.send(mail.settings.sender, title, msg)
 
 
@@ -216,8 +230,81 @@ def make_json(data):
     return myjson
 
 
-def gather_from_field(tablename, fieldname, regex_str, exclude,
-                      filter_func=None, unique=True):
+def multiple_replace(string, *key_values):
+    """
+    Perform multiple string replacements simultaneously.
+
+    Because the replacements are simultaneous the results of one replacement
+    will not be seen in making other replacements. For example, if 're' is to
+    be replaced by 'in' and 'nt' is to be replaced by 'ch' (('re', 'in'),
+    ('int', 'ch')), the input string 'return' would become 'inturn' not 'churn'.
+
+    The key_values argument should be an n-length tuple of 2-item tuples, each
+    of which represents one pair of old_value/replacement_value.
+
+    """
+    def multiple_replacer(*key_values):
+        """
+        Returns lambda function to perform the replacements.
+        """
+        replace_dict = dict(key_values)
+        replacement_function = lambda match: replace_dict[match.group(0)]
+        pattern = re.compile("|".join([re.escape(k)
+                                       for k, v in key_values]), re.M)
+        return lambda string: pattern.sub(replacement_function, string)
+
+    return multiple_replacer(*key_values)(string)
+
+
+@auth.requires_membership('administrators')
+class UtilForm():
+    """
+    Abstract parent class for constructing util interfaces.
+
+    Returns a tuple of two items: form and out.
+
+    """
+    def make_form(self, fieldlist=[]):
+        """
+        Return a tuple including a web2py form object and any processed output.
+
+        field_list should be a list of Field objects.
+
+        """
+        db = current.db
+        out = None
+        standard = [Field('source_table', requires=IS_IN_SET(db.tables)),
+                    Field('source_fields', 'list:string'),
+                    Field('filter_funcs', 'list:string'),
+                    Field('trans_funcs', 'list:string'),
+                    Field('unique', 'boolean', default=True),
+                    Field('write', 'boolean', default=False)
+                    ]
+        fieldlist = fieldlist.extend(standard)
+        form = SQLFORM.factory(*fieldlist)
+        if form.process().accepted:
+            out = self.process_result(form.vars)
+            out = list(set(out)) if form.vars.unique else out
+            if form.vars.write:
+                self.write_vals(out)
+        elif form.errors:
+            out = self.process_errors(form.errors)
+        return form, out
+
+    def write_vals(self, ttable, outvals):
+        """docstring for write_vals"""
+        db = current.db
+        return db[ttable].bulk_insert(outvals)
+
+    def process_result(self, vars):
+        return vars
+
+    def process_errors(self, errors):
+        return errors
+
+
+@auth.requires_membership('administrators')
+class GatherFromField(UtilForm):
     """
     Return a list of all strings satisfying the supplied regex.
 
@@ -232,99 +319,60 @@ def gather_from_field(tablename, fieldname, regex_str, exclude,
     happen before duplicate values are removed. So, for example, the strings
     can be normalized for case or accent characters if those variations are
     not significant.
-    """
-
-    db = current.db
-    form = SQLFORM.factory(Field('target_field'),
-                           Field('target_table'),
-                           Field('filter_func'),
-                           Field('trans_func'),
-                           Field('write_table'),
-                           Field('write_field'),
-                           Field('unique', 'boolean', default=True),
-                           Field('testing', 'boolean', default=True))
-
-    if form.process().accepted:
-        vv = form.vars
-        filter_func = eval(vv.filter_func) if vv.filter_func else None
-        trans_func = eval(vv.trans_func) if vv.trans_func else None
-
-        items = []
-        rows = db(db[vv.target_table].id > 0).select()
-        for r in rows:
-            items.append(r['target_field'])
-
-        if filter_func:
-            items = filter(filter_func, items)
-        if trans_func:
-            items = [trans_func(i) for i in items]
-        if vv.unique:
-            items = list(set(items))
-        items = [i for i in items if not i in exclude]
-
-    elif form.errors:
-        items = BEAUTIFY(form.errors)
-
-    return form, items
-
-
-def multiple_replacer(*key_values):
-    """
-    Returns a lambda function to perform replacements on a series of strings.
-
-    This is a helper function for the multiple_replace() function. The
-    key_values argument should be an n-length tuple of 2-item tuples, each of
-    which represents one pair of old_value/replacement_value.
-    """
-    replace_dict = dict(key_values)
-    replacement_function = lambda match: replace_dict[match.group(0)]
-    pattern = re.compile("|".join([re.escape(k) for k, v in key_values]), re.M)
-    return lambda string: pattern.sub(replacement_function, string)
-
-
-def multiple_replace(string, *key_values):
-    """
-    Perform multiple string replacements simultaneously.
-
-    Because the replacements are simultaneous the results of one replacement
-    will not be seen in making other replacements. For example, if 're' is to
-    be replaced by 'in' and 'nt' is to be replaced by 'ch' (('re', 'in'),
-    ('int', 'ch')), the input string 'return' would become 'inturn' not 'churn'.
-
-    The key_values argument should be an n-length tuple of 2-item tuples, each
-    of which represents one pair of old_value/replacement_value.
 
     """
-    return multiple_replacer(*key_values)(string)
+    def make_form(self):
+        """
+        """
+        fieldlist = [Field('target_field'),
+                     Field('target_table'),
+                     Field('filter_func', 'list:string'),
+                     Field('trans_func', 'list:string')]
+        return super(GatherFromField, self).make_form(fieldlist)
+
+    def process_result(self, vars):
+        """docstring for process_result"""
+        db = current.db
+        filter_func = literal_eval(vars.filter_func) if vars.filter_func else None
+        trans_func = literal_eval(vars.trans_func) if vars.trans_func else None
+
+        rows = db(db[vars.source_table].id > 0).select()
+        out = [r['target_field'] for r in rows]
+        out = filter(filter_func, out) if filter_func else out
+        out = [trans_func(i) for i in out] if trans_func else out
+        out = [{vars.target_field: i} for i in out]
+        return out
 
 
-def bulk_update():
+@auth.requires_membership('administrators')
+class BulkUpdate(UtilForm):
     """
-    Controller function to perform a programmatic update to a field in one table.
+    Perform a programmatic update to a field in one table.
+
     """
-    db = current.db
-    myrecs = None
-    form = SQLFORM.factory(
-        Field('table', requires=IS_IN_SET(db.tables)),
-        Field('field'),
-        Field('query'),
-        Field('new_value'))
-    if form.process().accepted:
-        query = eval(form.vars.query)
-        try:
-            recs = db(query)
-            recs.update(**{form.vars.field: form.vars.new_value})
-            myrecs = recs.select()
-            response.flash = 'update succeeded'
-        except Exception:
-            print traceback.format_exc(5)
-    elif form.errors:
-        myrecs = BEAUTIFY(form.errors)
-        response.flash = 'form has errors'
+    def process_result(self, vars):
+        """docstring for make_form"""
+        db = current.db
+        myrows = db(db[vars.source_table].id > 0).select()
+        out = []
+        for row in myrows:
+            odict = {'id': row.id}
+            for idx, sfield in vars.source_field:
+                filterfunc = literal_eval(vars.filter_func[idx])
+                if filterfunc(row[sfield]):
+                    transfunc = literal_eval(vars.trans_func[idx])
+                    odict[sfield] = transfunc(row[sfield])
+                else:
+                    pass
+            out.append(odict)
 
-    return form, myrecs
+    def write_vals(self, ttable, out):
+        """docstring for write_vals"""
+        db = current.db
+        db[ttable].BulkUpdate(**out)
 
 
+@auth.requires_membership('administrators')
 def migrate_field():
     """
     """
@@ -344,6 +392,7 @@ def migrate_field():
     return {'records_copied': c}
 
 
+@auth.requires_membership('administrators')
 def migrate_table():
     db = current.db
     items = db(db.pages.id > 0).select()
@@ -355,6 +404,7 @@ def migrate_table():
     return dict(records_moved=c)
 
 
+@auth.requires_membership('administrators')
 def migrate_back():
     db = current.db
     items = db(db.images_migrate.id > 0).select()
@@ -366,6 +416,7 @@ def migrate_back():
     return dict(records_updated=c)
 
 
+@auth.requires_membership('administrators')
 def import_from_csv():
     db = current.db
     try:
@@ -445,134 +496,104 @@ def import_from_csv():
                 print num
 
 
-def make_rows_from_field():
+@auth.requires_membership('administrators')
+class RowsFromField(UtilForm):
     """
-    Use values from one table to create new records in another.
+    Use values from one table field to create new records in another table.
 
     The strings provided for
 
     The values for source_fields, target_fields, filter_funcs, and
-    transform_funcs will be aligned by index.
-    """
-    db = current.db
-    out = []
-    form = SQLFORM.factory(Field('target_table'),
-                           Field('source_table'),
-                           Field('source_fields', 'list:string'),
-                           Field('target_fields', 'list:string'),
-                           Field('filter_funcs', 'list:string'),
-                           Field('trans_funcs', 'list:string'),
-                           Field('unique', 'boolean', default=True),
-                           Field('testing', 'boolean', default=True))
+    transform_funcs will be aligned by index within the list of return values
+    for each field. So source_fields[0] will be applied to target_fields[0],
+    etc.
 
-    if form.process().accepted:
-        vv = form.vars
-        sourcerows = db(db[vv.target_table].id > 0).select()
-        out = []
+    """
+    def make_form(self):
+        """
+        Return a form object to add rows from data in fields in another table.
+        """
+        fieldlist = [Field('target_table'),
+                     Field('target_fields', 'list:string')]
+        return super(UtilForm, self).make_form(fieldlist)
+
+    def process_result(self, vars):
+        db = current.db
+        sourcerows = db(db[vars.target_table].id > 0).select()
+        outrows = []
         for srow in sourcerows:
-            trow = []
-            for idx, f in enumerate(vv.source_fields):
-                tval = vv.trans_funcs[idx](srow[f]) \
-                    if len(vv.trans_funcs) > idx else srow[f]
-                if len(vv.filter_funcs) > idx:
-                    if not vv.filter_funcs[idx](tval):
-                        tval = None
-                if tval:
-                    trow[vv.target_fields[idx]] = tval
-            out.append(trow)
-
-        if vv.unique:
-            out = list(set(out))
-        if not vv.testing:
-            db[vv.target_table].bulk_insert(out)
-
-    elif form.errors:
-        out = BEAUTIFY(form.errors)
-
-    return form, out
+            outvals = {}
+            for idx, sfield in enumerate(vars.source_fields):
+                transval = vars.trans_funcs[idx](srow[sfield]) \
+                    if len(vars.trans_funcs) > idx else srow[sfield]
+                transval = vars.filter_funcs[idx](srow[sfield]) \
+                    if len(vars.filter_funcs) > idx else None
+                if transval:
+                    outvals[vars.target_fields[idx]] = transval
+            outrows.append(outvals)
+        return outrows
 
 
-def make_rows_from_filenames():
+@auth.requires_membership('administrators')
+class RowsFromFilenames(UtilForm):
     """
-    TODO: unfinished
     """
-    db = current.db
-    out = []
-    form = SQLFORM.factory(Field('folder_path'),
-                           Field('target_field'),
-                           Field('target_table'),
-                           Field('filter_func'),
-                           Field('extra_fields', 'list:string'),
-                           Field('unique', 'boolean', default=True),
-                           Field('testing', 'boolean', default=True))
+    def make_form(self):
+        """
+        """
+        fieldlist = [Field('folder_path'),
+                     Field('extra_fields', 'list:string')]
+        return super(UtilForm, self).make_form(fieldlist)
 
-    if form.process().accepted:
-        vv = form.vars
-        mypath = vv.folder_path
-        fullpath = os.path.join()
-        dirpath, dirnames, filenames = os.walk(mypath).next()
-        xfield, xfunc = tuple([(x[0].strip(), x[1].strip()) for x in vv.extra_fields.split(',')])
-        if xfunc:
-            xfunc = eval(xfunc)
-        filter_func = eval(vv.filter_func)
+    def process_result(self, vars):
+        """
+        Return a list of dictionaries representing new rows in the target table.
 
+        This version draws the values for the new rows from filenames in the
+        specified directory.
+
+        """
         out = []
-        for f in filenames:
-            kwargs = {}
-            kwargs[vv.target_field] = f
-            if xfunc:
-                kwargs[xfield] = xfunc(f)
-            if filter_func and not filter_func(f):
-                kwargs = None
-            if kwargs:
-                out.append(kwargs)
-
-        if not vv.testing:
-            db[vv.target_table].bulk_insert(out)
-
-    elif form.errors:
-        out = BEAUTIFY(form.errors)
-
-    return form, out
+        mypath = vars.folder_path
+        dirpath, dirnames, filenames = os.walk(mypath).next()
+        filter_funcs = [literal_eval(ff) for ff in vars.filter_funcs]
+        filenames = [n for ff in filter_funcs for n in filenames if ff(n)]
+        out = [{vars.target_field: f} for f in filenames]
+        xfields = [(x[0], literal_eval(x[1])) for x
+                   in vars.extra_fields.split('|')]
+        for orow in out:
+            for xfield in xfields:
+                orow[xfield[0]] = xfield[1](f)
+        return out
 
 
-def replace_in_field():
+@auth.requires_membership('administrators')
+class ReplaceInField(UtilForm):
     """
     Make a systematic set of string replacements for all values of one
     db field.
     """
+    def make_form(self):
+        """
+        """
+        fieldlist = [Field('filter_func'),
+                     Field('replacement_pairs', 'list:string')]
+        return super(UtilForm, self).make_form(fieldlist)
 
-    db = current.db
-    form = SQLFORM.factory(Field('target_field'),
-                           Field('target_table'),
-                           Field('filter_func'),
-                           Field('replacement_pairs', 'list:string'),
-                           Field('testing', 'boolean', default=True))
+    def process_result(self, vars):
+        """docstring for process_result"""
+        db = current.db
+        tf = vars.target_field
+        reps = vars.replacement_pairs
+        mypairs = [(v[0], v[1]) for r in reps for v in r.split('|')]
+        myrows = db(db[vars.target_table].id > 0).select()
+        out = [(row.id, multiple_replace(row[tf], mypairs)) for row in myrows]
+        return out
 
-    if form.process().accepted:
-        vv = form.vars
-        reps = vv.replacement_pairs
-        myreps = []
-        for r in reps:
-            pieces = r.split(',')
-            myset = (pieces[0].strip(), pieces[1].strip())
-            myreps.append(myset)
-
-        myrows = db(db[vv.target_table].id > 0).select()
-        count = 0
-        pairs = {}
-        for m in myrows:
-            startval = m[vv.target_field]
-            endval = multiple_replace(startval, myreps)
-            if not vv.testing:
-                m.update_record(**{vv.target_field: endval})
-            pairs[startval] = endval
-            count += 1
-
-        out = {'records_updated': count,
-               'pairs': pairs}
-
-    elif form.errors:
-        out = BEAUTIFY(form.errors)
-
-    return form, out
+    def write_vals(self, ttable, tfield, out):
+        """
+        Update existing rows in ttable with the new value for tfield.
+        """
+        db = current.db
+        for outval in out:
+            db[ttable](outval[0]).update(tfield=outval[1])
