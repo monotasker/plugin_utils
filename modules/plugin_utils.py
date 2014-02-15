@@ -52,9 +52,8 @@ import datetime
 import os
 import csv
 #from pprint import pprint
-auth = current.auth
-request = current.request
-response = current.response
+#auth = current.auth
+#request = current.request
 
 
 def util_interface(funcname):
@@ -317,6 +316,7 @@ def bulk_update():
     """
     Controller function to perform a programmatic update to a field in one table.
     """
+    response = current.response
     db = current.db
     myrecs = None
     form = SQLFORM.factory(
