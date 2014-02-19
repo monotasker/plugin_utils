@@ -230,6 +230,14 @@ def make_json(data):
     return myjson
 
 
+def load_json(data):
+    """
+    Return a dictionary representing the supplied json string "data".
+    """
+    myjson = json.loads(data)
+    return myjson
+
+
 def gather_from_field(tablename, fieldname, regex_str, exclude,
                       filter_func=None, unique=True):
     """
