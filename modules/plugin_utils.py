@@ -2,54 +2,56 @@
 # -*- coding:utf-8 -*-
 
 '''
-File: plugin_utils.py
-Author: Ian W. Scott
-Description: A collection of utility functions and classes for working on
-web2py projects.
+    File: plugin_utils.py
+    Author: Ian W. Scott
+    Description: A collection of utility functions and classes for working on
+    web2py projects.
 
-Many of these functions are meant to be called directly from elsewhere in an
-app's business logic, providing helper functions for common tasks. They can
-also, however, be accessed via the
+    Many of these functions are meant to be called directly from elsewhere in an
+    app's business logic, providing helper functions for common tasks. They can
+    also, however, be accessed via the
 
-This module file holds most of the business logic accessed through the
-controller functions. It exposes one main interface through the
-util_interface function. Through this function the following specific actions
-can be called:
+    This module file holds most of the business logic accessed through the
+    controller functions. It exposes one main interface through the
+    util_interface function. Through this function the following specific actions
+    can be called:
 
-clr         :Surround a string with ansi color sequences for console output.
-islist      :Ensure that an object is a list if it was not one already.
-printutf    :Convert unicode (utf-8) string to readable characters for printing.
-capitalize  :Capitalize a utf-8 string in a unicode-safe way.
-lowercase   :Convert string to lower case in utf-8 safe way.
-firstletter :Isolate the first letter of a byte-encoded unicode string.
-test_regex  :Return a re.match object for each given string, tested with the
-             given regex.
-flatten     :Convert an arbitrarily deep nested list into a single flat list.
-send_error  :Send an email reporting error and including debug info. """
-make_json   :Return a json object representing the provided dictionary, with
-             extra logic to handle datetime objects.
+    clr         :Surround a string with ansi color sequences for console output.
+    islist      :Ensure that an object is a list if it was not one already.
+    printutf    :Convert unicode (utf-8) string to readable characters for printing.
+    capitalize  :Capitalize a utf-8 string in a unicode-safe way.
+    lowercase   :Convert string to lower case in utf-8 safe way.
+    firstletter :Isolate the first letter of a byte-encoded unicode string.
+    test_regex  :Return a re.match object for each given string, tested with the
+                given regex.
+    flatten     :Convert an arbitrarily deep nested list into a single flat list.
+    send_error  :Send an email reporting error and including debug info. """
+    make_json   :Return a json object representing the provided dictionary, with
+                extra logic to handle datetime objects.
 
+    backup_db       :Provided by plugin_backup
+    bulk_update     :Controller function to perform a programmatic update to a
+                     field in one table.
+    migrate_field   :
+    migrate_table   :
+    migrate_back    :
 
-bulk_update     :Controller function to perform a programmatic update to a
-                 field in one table.
-migrate_field   :
-migrate_table   :
-migrate_back    :
+    When called via the plugin_utils/util controller, which accesses the
+    util_interface clearinghouse function, a form for input and a view of the
+    returned values is provided via the plugin_utils/util.html view.
 
-When called via the plugin_utils/util controller, which accesses the
-util_interface clearinghouse function, a form for input and a view of the
-returned values is provided via the plugin_utils/util.html view.
-
-These functions can also be called directly from other functions and classes.
+    These functions can also be called directly from other functions and classes.
 
 '''
 
+
+from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET, A
+from plugin_backup import backup_db
+import os
 import re
-from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
 import json
 import traceback
 import datetime
-import os
 import csv
 #from pprint import pprint
 #auth = current.auth
@@ -71,12 +73,30 @@ def util_interface(funcname):
              'import_from_csv': import_from_csv,
              'make_rows_from_field': make_rows_from_field,
              'make_rows_from_filenames': make_rows_from_filenames,
-             'replace_in_field': replace_in_field}
+             'replace_in_field': replace_in_field,
+             'do_backup': do_backup}
 
     form, output = funcs[funcname]()
 
     return form, output
 
+
+def do_backup():
+    """
+    Return a form that triggers a backup of the sqlite database with a message.
+    """
+    message = 'Click to perform backup.'
+    form = A(Field('leave_empty', 'text'),
+             Submit='Backup sqlite database now')
+    if form.process().accepted:
+        if form.vars.leave_empty == '':
+            message = backup_db()
+            if not message:
+                message = 'Sorry, the backup failed.'
+    elif form.errors:
+        message = BEAUTIFY(form.errors)
+
+    return form, message
 
 def islist(obj):
     """
