@@ -29,7 +29,7 @@
     make_json   :Return a json object representing the provided dictionary, with
                 extra logic to handle datetime objects.
 
-    backup_db       :Provided by plugin_backup
+    do_backup       :Calling copy_to_backup from plugin_sqlite_backup
     bulk_update     :Controller function to perform a programmatic update to a
                      field in one table.
     migrate_field   :
@@ -46,7 +46,7 @@
 
 
 from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET, A
-from plugin_backup import backup_db
+from plugin_sqlite_backup import copy_to_backup
 import os
 import re
 import json
@@ -86,17 +86,18 @@ def do_backup():
     Return a form that triggers a backup of the sqlite database with a message.
     """
     message = 'Click to perform backup.'
-    form = A(Field('leave_empty', 'text'),
-             Submit='Backup sqlite database now')
+    form = SQLFORM.factory(Field('leave_empty', 'text'),
+                           Submit='Backup sqlite database now')
     if form.process().accepted:
         if form.vars.leave_empty == '':
-            message = backup_db()
+            message = copy_to_backup()
             if not message:
                 message = 'Sorry, the backup failed.'
     elif form.errors:
         message = BEAUTIFY(form.errors)
 
     return form, message
+
 
 def islist(obj):
     """
