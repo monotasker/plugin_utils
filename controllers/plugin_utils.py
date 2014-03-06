@@ -14,7 +14,7 @@ if 0:
 from plugin_utils import util_interface
 
 
-@auth.has_membership('administrators')
+@auth.requires_membership('administrators')
 def util():
     """
     Controller function to present utility interface view.
@@ -22,7 +22,7 @@ def util():
     return {}
 
 
-@auth.has_membership('administrators')
+@auth.requires_membership('administrators')
 def action():
     """
     Controller function for input/output access to utility functions.
@@ -30,7 +30,5 @@ def action():
     print 'hi', request.args
     funcname = request.args[0]
     print funcname
-
     form, output = util_interface(funcname)
-
     return {'form': form, 'output': output}
