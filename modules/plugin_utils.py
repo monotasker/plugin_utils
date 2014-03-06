@@ -17,6 +17,7 @@ util_interface function. Through this function the following specific actions
 can be called:
 
 clr         :Surround a string with ansi color sequences for console output.
+islist      :Ensure that an object is a list if it was not one already.
 printutf    :Convert unicode (utf-8) string to readable characters for printing.
 capitalize  :Capitalize a utf-8 string in a unicode-safe way.
 lowercase   :Convert string to lower case in utf-8 safe way.
@@ -78,6 +79,15 @@ def util_interface(funcname):
     return form, output
 
 
+def islist(obj):
+    """
+    Return the supplied object converted to a list if it is not one already.
+    """
+    if not isinstance(obj, list):
+        obj = [obj]
+    return obj
+
+
 def clr(string, mycol='white'):
     """
     Return a string surrounded by ansi colour escape sequences.
@@ -112,55 +122,60 @@ def clr(string, mycol='white'):
     return newstring
 
 
+def makeutf8(rawstring):
+    """Return the string decoded as utf8 if it wasn't already."""
+    try:
+        rawstring = rawstring.decode('utf8')
+    except (UnicodeEncodeError, UnicodeDecodeError):  # if already decoded
+        rawstring = rawstring
+    except (AttributeError, TypeError):  # if rawstring is NoneType
+        rawstring = 'None'
+    return rawstring
+
+
 def printutf(string):
     """Convert unicode string to readable characters for printing."""
-    string = string.decode('utf-8').encode('utf-8')
+    string = makeutf8(string)
     return string
 
 
 def capitalize(letter):
-    #if letter in caps.values():
-    letter = letter.decode('utf-8').upper()
-    print 'capitalized'
-    print letter.encode('utf-8')
-    return letter
+    """
+    Convert string to upper case in utf-8 safe way.
+    """
+    letter = makeutf8(letter)
+    newletter = letter.upper()
+    return newletter
 
 
-def lowercase(string):
+def capitalize_first(mystring):
+    """
+    Return the supplied string with its first letter capitalized.
+    """
+    first, rest = firstletter(mystring)
+    first = capitalize(first)
+    newstring = first + makeutf8(rest)
+    return newstring
+
+
+def lowercase(letter):
     """
     Convert string to lower case in utf-8 safe way.
     """
-    string = string.decode('utf-8').lower()
-    return string.encode('utf-8')
+    letter = makeutf8(letter)
+    newletter = letter.lower()
+    return newletter
 
 
 def firstletter(mystring):
     """
     Find the first letter of a byte-encoded unicode string.
     """
-    print mystring
-    print 'utf-8'
-    mystring = mystring.decode('utf-8')
-    print mystring
+    mystring = makeutf8(mystring)
     let, tail = mystring[:1], mystring[1:]
-    print 'in firstletter: ', mystring[:1], '||', mystring[1:]
-    let, tail = let.encode('utf-8'), tail.encode('utf-8')
+    #print 'in firstletter: ', mystring[:1], '||', mystring[1:]
+    #let, tail = let.encode('utf8'), tail.encode('utf8')
     return let, tail
-    #else:
-        #try:
-            #if mystring[:3] in caps.values():
-                #first_letter = mystring[:3]
-            #else:
-                #first_letter = mystring[:3]
-                #tail = mystring[3:]
-        #except KeyError:
-            #try:
-                #first_letter = mystring[:2]
-                #tail = mystring[2:]
-            #except KeyError:
-                #first_letter = mystring[:2]
-                #tail = mystring[2:]
-    #return first_letter, tail
 
 
 def test_regex(regex, readables):
