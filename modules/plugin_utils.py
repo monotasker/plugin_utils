@@ -214,7 +214,7 @@ def test_regex(regex, readables):
     return rdict
 
 
-def flatten(self, items, seqtypes=(list, tuple)):
+def flatten(items, seqtypes=(list, tuple)):
     """
     Convert an arbitrarily deep nested list into a single flat list.
     """
