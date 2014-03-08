@@ -45,7 +45,7 @@
 '''
 
 
-from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET, A
+from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
 from plugin_sqlite_backup import copy_to_backup
 import os
 import re
@@ -53,6 +53,7 @@ import json
 import traceback
 import datetime
 import csv
+from itertools import chain
 #from pprint import pprint
 #auth = current.auth
 #request = current.request
@@ -103,8 +104,10 @@ def islist(obj):
     """
     Return the supplied object converted to a list if it is not one already.
     """
-    if not isinstance(obj, list):
+    if isinstance(obj, (str, int, long, float, unicode)):
         obj = [obj]
+    else:
+        obj = list(obj)
     return obj
 
 
@@ -218,9 +221,10 @@ def flatten(items, seqtypes=(list, tuple)):
     """
     Convert an arbitrarily deep nested list into a single flat list.
     """
-    for i, x in enumerate(items):
-        while isinstance(items[i], seqtypes):
-            items[i:i + 1] = items[i]
+    print 'starting flatten'
+
+    while any(isinstance(i, seqtypes) for i in items):
+        items = list(chain.from_iterable([islist(i) for i in items]))
     return items
 
 
