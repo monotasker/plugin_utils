@@ -54,7 +54,8 @@ import traceback
 import datetime
 import csv
 from itertools import chain
-#from pprint import pprint
+from ast import literal_eval
+from pprint import pprint
 #auth = current.auth
 #request = current.request
 
@@ -75,11 +76,36 @@ def util_interface(funcname):
              'make_rows_from_field': make_rows_from_field,
              'make_rows_from_filenames': make_rows_from_filenames,
              'replace_in_field': replace_in_field,
-             'do_backup': do_backup}
+             'do_backup': do_backup,
+             'print_rows_as_dicts': print_rows_as_dicts}
 
     form, output = funcs[funcname]()
 
     return form, output
+
+
+def print_rows_as_dicts():
+    """docstring for print_select"""
+    db = current.db
+    message = 'Click to display the query result as a list of dictionaries.'
+    form = SQLFORM.factory(Field('table', 'str'),
+                           Field('field', 'str'),
+                           Field('value', 'str'),
+                           Submit='Evaluate')
+    if form.process().accepted:
+        print 'processing'
+        tbl = form.vars.table
+        fld = form.vars.field
+        val = literal_eval(form.vars.value)
+        rows = db(db[tbl][fld] == val).select().as_list()
+        if not rows:
+            rows = db(db[tbl][fld] == int(val)).select().as_list()
+        message = rows
+    elif form.errors:
+        message = BEAUTIFY(form.errors)
+    print 'returning form'
+    print message
+    return form, message
 
 
 def do_backup():
