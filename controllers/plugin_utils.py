@@ -17,7 +17,7 @@ from plugin_utils import util_interface
 @auth.requires_membership('administrators')
 def util():
     """
-    Controller function to present utility interface view.
+    Controller function to present base utility interface view.
     """
     return {}
 
@@ -25,7 +25,7 @@ def util():
 @auth.requires_membership('administrators')
 def action():
     """
-    Controller function for input/output access to utility functions.
+    Controller function for ajax input/output access to utility functions.
     """
     print 'hi', request.args
     funcname = request.args[0]
