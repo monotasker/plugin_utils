@@ -104,10 +104,12 @@ def islist(obj):
     """
     Return the supplied object converted to a list if it is not one already.
     """
+    print 'converting to list'
     if isinstance(obj, (str, int, long, float, unicode)):
         obj = [obj]
     else:
         obj = list(obj)
+    print 'returning list', obj
     return obj
 
 
@@ -221,8 +223,6 @@ def flatten(items, seqtypes=(list, tuple)):
     """
     Convert an arbitrarily deep nested list into a single flat list.
     """
-    print 'starting flatten'
-
     while any(isinstance(i, seqtypes) for i in items):
         items = list(chain.from_iterable([islist(i) for i in items]))
     return items
@@ -230,6 +230,7 @@ def flatten(items, seqtypes=(list, tuple)):
 
 def send_error(myclass, mymethod, myrequest):
     """ Send an email reporting error and including debug info. """
+    # FIXME: this is broken
     mail = current.mail
     msg = '<html>A user encountered an error in {myclass}.{mymethod}' \
           'report failed.\n\nTraceback: {tb}' \
