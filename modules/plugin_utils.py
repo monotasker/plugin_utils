@@ -184,6 +184,17 @@ def makeutf8(rawstring):
     return rawstring
 
 
+def encodeutf8(rawstring):
+    """Return string encoded as bytestring from utf8 if it wasn't already."""
+    try:
+        newstring = rawstring.encode('utf8')
+    except UnicodeDecodeError:
+        newstring = rawstring
+    except (AttributeError, TypeError):
+        newstring = 'None'
+    return newstring
+
+
 def printutf(string):
     """Convert unicode string to readable characters for printing."""
     string = makeutf8(string)
