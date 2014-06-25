@@ -67,7 +67,6 @@ def util_interface(funcname):
     The one required argument 'funcname' should be a string containing the name
     of a function in this module.
     """
-    print 'util_interface'
     funcs = {'gather_from_field': gather_from_field,
              'bulk_update': bulk_update,
              'migrate_field': migrate_field,
@@ -93,7 +92,6 @@ def print_rows_as_dicts():
                            Field('value', 'str'),
                            Submit='Evaluate')
     if form.process().accepted:
-        print 'processing'
         tbl = form.vars.table
         fld = form.vars.field
         val = literal_eval(form.vars.value)
@@ -103,7 +101,6 @@ def print_rows_as_dicts():
         message = rows
     elif form.errors:
         message = BEAUTIFY(form.errors)
-    print 'returning form'
     print message
     return form, message
 
@@ -130,12 +127,10 @@ def islist(obj):
     """
     Return the supplied object converted to a list if it is not one already.
     """
-    print 'converting to list'
     if isinstance(obj, (str, int, long, float, unicode)):
         obj = [obj]
     else:
         obj = list(obj)
-    print 'returning list', obj
     return obj
 
 
