@@ -357,8 +357,11 @@ def multiple_replacer(*key_values):
     which represents one pair of old_value/replacement_value.
     """
     replace_dict = dict(key_values)
+    print 'hoo'
     replacement_function = lambda match: replace_dict[match.group(0)]
-    pattern = re.compile("|".join([re.escape(k) for k, v in key_values]), re.M)
+    print 'man'
+    pattern = re.compile("|".join([re.escape(k) for k, v in replace_dict.iteritems()]), re.M | re.U)
+    print 'hang'
     return lambda string: pattern.sub(replacement_function, string)
 
 
@@ -375,6 +378,7 @@ def multiple_replace(string, *key_values):
     of which represents one pair of old_value/replacement_value.
 
     """
+    print 'woo'
     return multiple_replacer(*key_values)(string)
 
 
