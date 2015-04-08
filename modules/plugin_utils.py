@@ -25,7 +25,6 @@
     test_regex  :Return a re.match object for each given string, tested with the
                 given regex.
     flatten     :Convert an arbitrarily deep nested list into a single flat list.
-    send_error  :Send an email reporting error and including debug info. """
     make_json   :Return a json object representing the provided dictionary, with
                 extra logic to handle datetime objects.
 
@@ -41,6 +40,10 @@
     returned values is provided via the plugin_utils/util.html view.
 
     These functions can also be called directly from other functions and classes.
+    Some functions are intended to be used this way, for example:
+
+    ErrorReport     : a utility class for emailing custom error reports to an
+                      administrator.
 
 '''
 
@@ -55,9 +58,89 @@ import datetime
 import csv
 from itertools import chain
 from ast import literal_eval
-from pprint import pprint
+#from pprint import pprint
 #auth = current.auth
 #request = current.request
+
+
+class ErrorReport(object):
+    '''
+    Basic class for sending an emailed error report with a generic message.
+
+    '''
+    def __init__(self, mail=None):
+        """
+        Initialize an ErrorReport object.
+
+        The mail sending relies on web2py's built-in mail handler. This must
+        be set up elsewhere, preferably in the models/db.py file.
+
+        """
+        self.mail = current.mail if not mail else mail
+        self.sender = self.mail.settings.sender
+
+    def _get_message_frame(self, callingClass, callingMethod, callingUser,
+                           callingRequest, traceback):
+        """
+        Assemples the common elements of the email body of the error report.
+
+        These elements will be relevant across various kinds of errors, so
+        they are abstracted out of the main _build_message() method. The latter
+        can easily be overridden in child classes to provide specialized errors.
+
+        """
+        msg = 'A user encountered an error in {}.{}\n\n' \
+              ''.format(callingClass, callingMethod)
+        if callingUser:
+            msg += 'User:\n\n{}\n'.format(callingUser)
+        if traceback:
+            msg += 'Python Traceback report:\n\n{}\n'.format(traceback)
+        if callingRequest:
+            msg += 'Request object:\n\n{}\n'.format(callingRequest)
+
+        return msg
+
+    def _build_message(self, callingClass, callingMethod, callingUser,
+                       callingRequest, traceback, subtitle, xtra):
+        """
+        Compiles the html message for the email body of the error report.
+
+        This method is isolated to allow easy overriding in child classes for
+        different specific purposes.
+
+        """
+        print 'xtra is', xtra
+        title = 'Paideia Error - {}'.format(subtitle) \
+            if subtitle else 'Paideia Error'
+
+        msg_frame = self._get_message_frame(callingClass, callingMethod,
+                                            callingUser, callingRequest,
+                                            traceback)
+        msg = (msg_frame + xtra) if xtra else msg_frame
+
+        return title, msg
+
+    def send_report(self, callingClass, callingMethod, callingUser='',
+                    callingRequest='', traceback='', subtitle='', xtra='',
+                    mail=None, sender=None):
+        """
+        Send an email reporting error and including debug info.
+
+        The only arguments that are strictly necessary are callingClass and
+        callingMethod which should be strings giving the names of the class and
+        method in which the error occurred.
+
+        The 'mail' argument is only necessary if a mailer object was not
+        assigned earlier to self.mail.
+
+        """
+        mail = self.mail if not mail else mail
+        sender = self.sender if not sender else sender
+        title, body = self._build_message(callingClass, callingMethod,
+                                          callingUser, callingRequest,
+                                          traceback, subtitle, xtra)
+        mail.send(sender, title, body)
+        return True
 
 
 def util_interface(funcname):
@@ -260,21 +343,6 @@ def flatten(items, seqtypes=(list, tuple)):
     return items
 
 
-def send_error(myclass, mymethod, myrequest):
-    """ Send an email reporting error and including debug info. """
-    # FIXME: this is broken
-    mail = current.mail
-    msg = '<html>A user encountered an error in {myclass}.{mymethod}' \
-          'report failed.\n\nTraceback: {tb}' \
-          'Request:\n{rq}\n' \
-          '</html>'.format(myclass=myclass,
-                           mymethod=mymethod,
-                           tb=traceback.format_exc(5),
-                           rq=myrequest)
-    title = 'Paideia error'
-    mail.send(mail.settings.sender, title, msg)
-
-
 def make_json(data):
     """
     Return json object representing the data provided in dictionary "data".
@@ -340,7 +408,7 @@ def gather_from_field(tablename, fieldname, regex_str, exclude,
             items = [trans_func(i) for i in items]
         if vv.unique:
             items = list(set(items))
-        items = [i for i in items if not i in exclude]
+        items = [i for i in items if i not in exclude]
 
     elif form.errors:
         items = BEAUTIFY(form.errors)
@@ -525,7 +593,8 @@ def import_from_csv():
                            'image_title': image_title,
                            'image_filename': image_filename,
                            'topics': topics}
-                matches = {k: v for k, v in matches.iteritems() if not v in [None, 'NULL']}
+                matches = {k: v for k, v in matches.iteritems()
+                           if v not in [None, 'NULL']}
                 num = db.paragraphs.insert(**matches)
                 print num
 
