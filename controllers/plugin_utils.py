@@ -8,27 +8,14 @@ web2py projects (controllers file).
 '''
 
 if 0:
-    from gluon import current
+    from gluon import current, BEAUTIFY
+    from gluon.sqlhtml import SQLFORM
+    from gluon.validators import IS_IN_SET
+    from gluon.dal import Field
     request = current.request
     auth = current.auth
-from plugin_utils import util_interface
+from plugin_utils import flatten, makeutf8
+#from pprint import pprint
+import re
 
 
-@auth.requires_membership('administrators')
-def util():
-    """
-    Controller function to present base utility interface view.
-    """
-    return {}
-
-
-@auth.requires_membership('administrators')
-def action():
-    """
-    Controller function for ajax input/output access to utility functions.
-    """
-    print 'hi', request.args
-    funcname = request.args[0]
-    print funcname
-    form, output = util_interface(funcname)
-    return {'form': form, 'output': output}
