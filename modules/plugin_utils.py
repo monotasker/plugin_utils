@@ -18,12 +18,9 @@
 
     clr         :Surround a string with ansi color sequences for console output.
     islist      :Ensure that an object is a list if it was not one already.
-    printutf    :Convert unicode (utf-8) string to readable characters for printing.
     capitalize  :Capitalize a utf-8 string in a unicode-safe way.
     lowercase   :Convert string to lower case in utf-8 safe way.
     firstletter :Isolate the first letter of a byte-encoded unicode string.
-    test_regex  :Return a re.match object for each given string, tested with the
-                given regex.
     flatten     :Convert an arbitrarily deep nested list into a single flat list.
     make_json   :Return a json object representing the provided dictionary, with
                 extra logic to handle datetime objects.
@@ -48,7 +45,7 @@
 '''
 
 
-from gluon import SPAN, current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
+from gluon import current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
 from plugin_sqlite_backup import copy_to_backup
 import os
 import re
@@ -273,12 +270,6 @@ def encodeutf8(rawstring):
     return newstring
 
 
-def printutf(string):
-    """Convert unicode string to readable characters for printing."""
-    string = makeutf8(string)
-    return string
-
-
 def capitalize(letter):
     """
     Convert string to upper case in utf-8 safe way.
@@ -316,22 +307,6 @@ def firstletter(mystring):
     #print 'in firstletter: ', mystring[:1], '||', mystring[1:]
     #let, tail = let.encode('utf8'), tail.encode('utf8')
     return let, tail
-
-
-def test_regex(regex, readables):
-    """
-    Return a re.match object for each given string, tested with the given regex.
-
-    The "readables" argument should be a list of strings to be tested.
-    """
-    readables = readables if type(readables) == list else [readables]
-    test_regex = re.compile(regex, re.I | re.U)
-    rdict = {}
-    for rsp in readables:
-        match = re.match(test_regex, rsp)
-        rdict[rsp] = SPAN('PASSED', _class='success') if match \
-            else SPAN('FAILED', _class='success')
-    return rdict
 
 
 def flatten(items, seqtypes=(list, tuple)):
@@ -416,38 +391,34 @@ def gather_from_field(tablename, fieldname, regex_str, exclude,
     return form, items
 
 
-def multiple_replacer(*key_values):
+def multiple_replace(string, key_values, return_unicode=True):
     """
-    Returns a lambda function to perform replacements on a series of strings.
-
-    This is a helper function for the multiple_replace() function. The
-    key_values argument should be an n-length tuple of 2-item tuples, each of
-    which represents one pair of old_value/replacement_value.
-    """
-    replace_dict = dict(key_values)
-    print 'hoo'
-    replacement_function = lambda match: replace_dict[match.group(0)]
-    print 'man'
-    pattern = re.compile("|".join([re.escape(k) for k, v in replace_dict.iteritems()]), re.M | re.U)
-    print 'hang'
-    return lambda string: pattern.sub(replacement_function, string)
-
-
-def multiple_replace(string, *key_values):
-    """
-    Perform multiple string replacements simultaneously.
+    Perform multiple string replacements simultaneously and return a unicode str.
 
     Because the replacements are simultaneous the results of one replacement
     will not be seen in making other replacements. For example, if 're' is to
     be replaced by 'in' and 'nt' is to be replaced by 'ch' (('re', 'in'),
     ('int', 'ch')), the input string 'return' would become 'inturn' not 'churn'.
 
-    The key_values argument should be an n-length tuple of 2-item tuples, each
-    of which represents one pair of old_value/replacement_value.
+    The key_values argument should be a dictionary pairing old values (keys)
+    with replacement values (values).
+
+    From http://stackoverflow.com/questions/6116978/python-replace-multiple-strings
 
     """
-    print 'woo'
-    return multiple_replacer(*key_values)(string)
+    # TODO: Should this accept regexes as the keys? (currently doesn't)
+    # TODO: Handle unicode more elegantly
+    string = unicode(string)
+    rep = {re.escape(unicode(makeutf8(k))): unicode(makeutf8(v))
+           for k, v in key_values.iteritems()}
+    regexstr = unicode("|".join(rep.keys()))
+    pattern = re.compile(regexstr, re.U)
+    text = pattern.sub(lambda m: rep[re.escape(m.group(0))], string)
+    if not return_unicode:
+        text = makeutf8(text)
+    print 'returning', type(text)
+
+    return text
 
 
 def bulk_update():

@@ -13,6 +13,7 @@ import pytest
 import plugin_utils
 
 
+'''
 #@pytest.fixture(params=[n for n in range(4)])
 #def myfixture(request, myotherfixture):
     #"""
@@ -21,6 +22,7 @@ import plugin_utils
     #case = request.param
     #data = myotherfixture[case]
     #return Classname(**data)
+'''
 
 
 @pytest.mark.parametrize('mydata,myexpected', [
@@ -67,18 +69,25 @@ def test_flatten(mydata, myexpected):
     assert actual == expected
 
 
-#class TestClassname():
-    #'''
-    #Unit testing class for the classname class.
-    #'''
-
-    #def test_methodname(self, myfixture):
-        #"""
-        #Unit test for methodname.
-        #"""
-        #data = myfixture
-        #expected = ''
-
-        #actual = Classname().methodname(**data)
-
-        #assert actual == expected
+@pytest.mark.parametrize('string_in,equivs,string_out',
+                         [('happiness',
+                           {'h': 'd',
+                            'a': 'i',
+                            'p': 'z'},
+                           'dizziness'),
+                          (u'ἀποκρινομαι',
+                           {'οκ': 'εκ',
+                            'ρ': 'δ',
+                            'ιν': 'εχ'},
+                           u'ἀπεκδεχομαι'),
+                          ])
+def test_multiple_replace(string_in, equivs, string_out):
+    """
+    Unit test for multiple_replace() utility function.
+    """
+    actual = plugin_utils.multiple_replace(string_in, equivs)
+    print 'string in', string_in
+    print 'actual', actual
+    print 'expected', string_out
+    print 'equivs', equivs
+    assert actual == string_out
