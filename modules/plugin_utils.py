@@ -185,6 +185,12 @@ def print_rows_as_dicts():
     return form, message
 
 
+def check_path(path):
+    if os.path.exists(path):
+        return path
+    raise OSError(2, "{}: {}".format(os.strerror(2), path))
+
+
 def do_backup():
     """
     Return a form that triggers a backup of the sqlite database with a message.
