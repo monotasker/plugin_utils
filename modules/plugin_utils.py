@@ -47,7 +47,7 @@
 
 from gluon import current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
 from kitchen.text.converters import to_unicode, to_bytes
-from plugin_sqlite_backup import copy_to_backup
+#from plugin_sqlite_backup import copy_to_backup
 import os
 import re
 import json
@@ -156,7 +156,6 @@ def util_interface(funcname):
              'make_rows_from_field': make_rows_from_field,
              'make_rows_from_filenames': make_rows_from_filenames,
              'replace_in_field': replace_in_field,
-             'do_backup': do_backup,
              'print_rows_as_dicts': print_rows_as_dicts}
 
     form, output = funcs[funcname]()
@@ -186,22 +185,27 @@ def print_rows_as_dicts():
     return form, message
 
 
-def do_backup():
-    """
-    Return a form that triggers a backup of the sqlite database with a message.
-    """
-    message = 'Click to perform backup.'
-    form = SQLFORM.factory(Field('leave_empty', 'text'),
-                           Submit='Backup sqlite database now')
-    if form.process().accepted:
-        if form.vars.leave_empty == '':
-            message = copy_to_backup()
-            if not message:
-                message = 'Sorry, the backup failed.'
-    elif form.errors:
-        message = BEAUTIFY(form.errors)
+def check_path(path):
+    if os.path.exists(path):
+        return path
+    raise OSError(2, "{}: {}".format(os.strerror(2), path))
 
-    return form, message
+
+#def do_backup():
+    #"""
+    #Return a form that triggers a backup of the sqlite database with a message.
+    #"""
+    #message = 'Click to perform backup.'
+    #form = SQLFORM.factory(Field('leave_empty', 'text'),
+    #                       Submit='Backup sqlite database now')
+    #if form.process().accepted:
+    #    if form.vars.leave_empty == '':
+    #        message = copy_to_backup()
+    #        if not message:
+    #            message = 'Sorry, the backup failed.'
+    #elif form.errors:
+    #    message = BEAUTIFY(form.errors)
+    #return form, message
 
 
 def islist(obj):
