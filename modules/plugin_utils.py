@@ -46,6 +46,7 @@
 
 
 from gluon import current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
+from kitchen.text.converters import to_unicode, to_bytes
 from plugin_sqlite_backup import copy_to_backup
 import os
 import re
@@ -274,8 +275,9 @@ def capitalize(letter):
     """
     Convert string to upper case in utf-8 safe way.
     """
-    letter = makeutf8(letter)
+    letter = to_unicode(letter, encoding='utf8')
     newletter = letter.upper()
+    newletter = to_bytes(letter, encoding='utf8')
     return newletter
 
 
@@ -283,9 +285,12 @@ def capitalize_first(mystring):
     """
     Return the supplied string with its first letter capitalized.
     """
-    first, rest = firstletter(mystring)
-    first = capitalize(first)
-    newstring = first + makeutf8(rest)
+    mystring = to_unicode(mystring, encoding='utf8')
+    first, rest = mystring[:1], mystring[1:]
+    first = first.upper()
+    newstring = u'{}{}'.format(first, rest)
+    newstring = to_bytes(newstring, encoding='utf8')
+
     return newstring
 
 
@@ -304,8 +309,6 @@ def firstletter(mystring):
     """
     mystring = makeutf8(mystring)
     let, tail = mystring[:1], mystring[1:]
-    #print 'in firstletter: ', mystring[:1], '||', mystring[1:]
-    #let, tail = let.encode('utf8'), tail.encode('utf8')
     return let, tail
 
 
