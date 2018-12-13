@@ -107,7 +107,7 @@ class ErrorReport(object):
         different specific purposes.
 
         """
-        print 'xtra is', xtra
+        print('xtra is', xtra)
         title = 'Paideia Error - {}'.format(subtitle) \
             if subtitle else 'Paideia Error'
 
@@ -181,7 +181,7 @@ def print_rows_as_dicts():
         message = rows
     elif form.errors:
         message = BEAUTIFY(form.errors)
-    print message
+    print(message)
     return form, message
 
 
@@ -423,7 +423,7 @@ def multiple_replace(string, key_values, return_unicode=True):
     text = pattern.sub(lambda m: rep[re.escape(m.group(0))], string)
     if not return_unicode:
         text = makeutf8(text)
-    print 'returning', type(text)
+    print('returning', type(text))
 
     return text
 
@@ -448,7 +448,7 @@ def bulk_update():
             myrecs = recs.select()
             response.flash = 'update succeeded'
         except Exception:
-            print traceback.format_exc(5)
+            print(traceback.format_exc(5))
     elif form.errors:
         myrecs = BEAUTIFY(form.errors)
         response.flash = 'form has errors'
@@ -502,7 +502,7 @@ def import_from_csv():
     try:
         db.paragraphs.truncate()
     except:
-        print traceback.format_exc(5)
+        print(traceback.format_exc(5))
     mydir = '/home/ian/Dropbox/Downloads/Webdev/woh_export'
     files = ['node-export(43-nodes).1335558252.csv',
              'node-export(50-nodes).1335557844.csv',
@@ -553,7 +553,7 @@ def import_from_csv():
                     except (TypeError, ValueError):
                         times[k] = datetime.datetime.utcnow()
                         errors += 1
-                    print '{} errors: {}'.format(k, errors)
+                    print('{} errors: {}'.format(k, errors))
 
                 matches = {'uid': row['uid'],
                            'chapter': titlebits[0],
@@ -574,7 +574,7 @@ def import_from_csv():
                 matches = {k: v for k, v in matches.iteritems()
                            if v not in [None, 'NULL']}
                 num = db.paragraphs.insert(**matches)
-                print num
+                print(num)
 
 
 def make_rows_from_field():
