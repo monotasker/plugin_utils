@@ -46,14 +46,14 @@ def test_islist(mydata, myexpected):
 
 
 @pytest.mark.parametrize('mydata,myexpected', [
-    ([[17L], [86L, 129L], [72L, 82L, 69L], [84L, 1L], [10L, 2L], [61L, 77L],
-      [87L, 77L], [72L, 82L, 69L], [63L, 61L, 62L, 84L, 1L],
-      [63L, 61L, 66L, 62L, 128L, 10L, 2L], 76L, 76L, 72L, 89L, 122L, [67L], [67L],
-      [], [], [2L, 122L, 128L]
+    ([[17], [86, 129], [72, 82, 69], [84, 1], [10, 2], [61, 77],
+      [87, 77], [72, 82, 69], [63, 61, 62, 84, 1],
+      [63, 61, 66, 62, 128, 10, 2], 76, 76, 72, 89, 122, [67], [67],
+      [], [], [2, 122, 128]
       ],
-     [17L, 86L, 129L, 72L, 82L, 69L, 84L, 1L, 10L, 2L, 61L, 77L, 87L, 77L, 72L,
-      82L, 69L, 63L, 61L, 62L, 84L, 1L, 63L, 61L, 66L, 62L, 128L, 10L, 2L, 76L,
-      76L, 72L, 89L, 122L, 67L, 67L, 2L, 122L, 128L]
+     [17, 86, 129, 72, 82, 69, 84, 1, 10, 2, 61, 77, 87, 77, 72,
+      82, 69, 63, 61, 62, 84, 1, 63, 61, 66, 62, 128, 10, 2, 76,
+      76, 72, 89, 122, 67, 67, 2, 122, 128]
      ),  # end of first input
     (['a', ['x', 'y', 'z'], (1, 2, ['e', 'f'])],
      ['a', 'x', 'y', 'z', 1, 2, 'e', 'f']
@@ -75,19 +75,19 @@ def test_flatten(mydata, myexpected):
                             'a': 'i',
                             'p': 'z'},
                            'dizziness'),
-                          (u'ἀποκρινομαι',
+                          ('ἀποκρινομαι',
                            {'οκ': 'εκ',
                             'ρ': 'δ',
                             'ιν': 'εχ'},
-                           u'ἀπεκδεχομαι'),
+                           'ἀπεκδεχομαι'),
                           ])
 def test_multiple_replace(string_in, equivs, string_out):
     """
     Unit test for multiple_replace() utility function.
     """
     actual = plugin_utils.multiple_replace(string_in, equivs)
-    print 'string in', string_in
-    print 'actual', actual
-    print 'expected', string_out
-    print 'equivs', equivs
+    print('string in', string_in)
+    print('actual', actual)
+    print('expected', string_out)
+    print('equivs', equivs)
     assert actual == string_out
