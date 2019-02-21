@@ -414,15 +414,10 @@ def multiple_replace(string, key_values, return_unicode=True):
 
     """
     # TODO: Should this accept regexes as the keys? (currently doesn't)
-    # TODO: Handle unicode more elegantly
-    string = unicode(string)
-    rep = {re.escape(unicode(makeutf8(k))): unicode(makeutf8(v))
-           for k, v in key_values.iteritems()}
-    regexstr = unicode("|".join(rep.keys()))
-    pattern = re.compile(regexstr, re.U)
+    rep = {re.escape(k): v for k, v in key_values.items()}
+    regexstr = "|".join(rep.keys())
+    pattern = re.compile(regexstr)
     text = pattern.sub(lambda m: rep[re.escape(m.group(0))], string)
-    if not return_unicode:
-        text = makeutf8(text)
     print('returning', type(text))
 
     return text
