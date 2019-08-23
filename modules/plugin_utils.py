@@ -56,7 +56,7 @@ import datetime
 import csv
 from itertools import chain
 from ast import literal_eval
-#from pprint import pprint
+from pprint import pprint
 #auth = current.auth
 #request = current.request
 
@@ -472,24 +472,35 @@ def migrate_field():
 
 def migrate_table():
     db = current.db
-    items = db(db.pages.id > 0).select()
+    items = db(db.plugin_slider_decks.id > 0).select()
     c = 0
     for i in items:
-        db.journal_pages.insert(**{'journal_page': i.page})
+        slides = db(db.plugin_slider_slides.id.belongs(i.deck_slides)
+                         ).select()
+        mytags = db(db.tags.slides.contains(i.id)).select()
+        for s in slides:
+            print([t.id for t in mytags])
+            myid = db.lessons.update_or_insert(**{'title': i.deck_name,
+                                                  'video_url': s.slide_content,
+                                                  'pdf': s.pdf,
+                                                  'lesson_tags': [t.id for t in mytags],
+                                                  'lesson_position': i.deck_position})
+            pprint(db.lessons(myid))
+            db.commit()
         c += 1
 
     return dict(records_moved=c)
 
 
-def migrate_back():
-    db = current.db
-    items = db(db.images_migrate.id > 0).select()
-    c = 0
-    for i in items:
-        c += 1
-        db.images[i.id] = i.as_dict()
+# def migrate_back():
+#     db = current.db
+#     items = db(db.images_migrate.id > 0).select()
+#     c = 0
+#     for i in items:
+#         c += 1
+#         db.images[i.id] = i.as_dict()
 
-    return dict(records_updated=c)
+#     return dict(records_updated=c)
 
 
 def import_from_csv():
