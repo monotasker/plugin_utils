@@ -44,21 +44,19 @@
 
 '''
 
-
-from gluon import current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
-from kitchen.text.converters import to_unicode, to_bytes
-#from plugin_sqlite_backup import copy_to_backup
-import os
-import re
-import json
-import traceback
-import datetime
-import csv
-from itertools import chain
 from ast import literal_eval
+from collections import Mapping, Container 
+import csv
+import datetime
+from gluon import current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
+from itertools import chain
+import json
+from kitchen.text.converters import to_unicode, to_bytes
+import os
 from pprint import pprint
-#auth = current.auth
-#request = current.request
+import re
+import sys
+import traceback
 
 
 class ErrorReport(object):
@@ -714,3 +712,54 @@ def replace_in_field():
         out = BEAUTIFY(form.errors)
 
     return form, out
+
+
+def print_sizes(object_dict, mylimit=10):
+    def sizeof_fmt(num, suffix='B'):
+        ''' by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified'''
+        for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+            if abs(num) < 1024.0:
+                return "%3.1f %s%s" % (num, unit, suffix)
+            num /= 1024.0
+        return "%.1f %s%s" % (num, 'Yi', suffix)
+
+    for name, size in sorted(((name, deep_getsizeof(value))
+            for name, value in object_dict.items()),
+            key= lambda x: -x[1])[:mylimit]:
+        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
+
+
+
+def deep_getsizeof(obj, seen=None): 
+    """
+    Find the memory footprint of a Python object
+
+    This is a recursive function that drills down a Python object graph
+    like a dictionary holding nested dictionaries with lists of lists
+    and tuples and sets.
+
+    The sys.getsizeof function does a shallow size of only. It counts each
+    object inside a container as pointer only regardless of how big it
+    really is.
+
+    :param o: the object
+    :param ids:
+    :return:
+    """
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([deep_getsizeof(v, seen) for v in obj.values()])
+        size += sum([deep_getsizeof(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += deep_getsizeof(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([deep_getsizeof(i, seen) for i in obj])
+    return size
