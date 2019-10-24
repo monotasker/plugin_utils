@@ -49,7 +49,7 @@ from collections import Mapping, Container
 import csv
 import datetime
 from gluon import current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
-from itertools import chain
+from itertools import chain, zip_longest
 import json
 from kitchen.text.converters import to_unicode, to_bytes
 import os
@@ -763,3 +763,7 @@ def deep_getsizeof(obj, seen=None):
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([deep_getsizeof(i, seen) for i in obj])
     return size
+
+def grouper(iterable, n, fillvalue=None):
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
