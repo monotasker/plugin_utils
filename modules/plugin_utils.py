@@ -45,7 +45,7 @@
 '''
 
 from ast import literal_eval
-from collections import Mapping, Container 
+from collections.abc import Mapping, Container
 import csv
 import datetime
 from gluon import current, BEAUTIFY, SQLFORM, Field, IS_IN_SET
@@ -730,7 +730,7 @@ def print_sizes(object_dict, mylimit=10):
 
 
 
-def deep_getsizeof(obj, seen=None): 
+def deep_getsizeof(obj, seen=None):
     """
     Find the memory footprint of a Python object
 
